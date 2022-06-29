@@ -1,0 +1,249 @@
+<html lang="es">
+<head>
+    <script src="js/jquery.min.js"></script>
+    <title>Minesweeper</title>
+    <style>
+        .tablero {
+            display: flex;
+            flex-flow: wrap;
+        }
+
+        .fila {
+            display: flex;
+        }
+
+        .casilla {
+            border: 1px solid black;
+            box-sizing: border-box;
+            cursor: pointer;
+            background-color: rgb(177, 177, 177);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .casilla span {
+            display: none;
+            font-weight: bold;
+            text-shadow: 0 0 1px rgb(0 0 0);
+            font-size: 27px;
+        }
+
+        .casilla[data-discovered="true"] {
+            background-color: white;
+        }
+
+        .type-0 span {
+            display: none !important;
+        }
+
+        .type-1 span {
+            color: #0d8fd6;
+        }
+
+        .type-2 span {
+            color: #57f1f1;
+        }
+
+        .type-3 span {
+            color: #c2ed3b;
+        }
+
+        .type-4 span {
+            color: #f9b800;
+        }
+
+        .type-5 span {
+            color: #f44336;
+        }
+
+        .type-6 span {
+            color: #969696;
+        }
+
+        .type-7 span {
+            color: #000000;
+        }
+    </style>
+
+</head>
+<body>
+<div class="tablero" oncontextmenu="return false;">
+
+</div>
+
+<script>
+
+    let tableroRow = 16;
+    let tableroColumn = 16;
+    let casillaSize = 35;
+    let minesTarget = 30;
+    let minesAmount = 0;
+    let discoveredCasillas = 0;
+    let tableroArray = new Array(tableroRow);
+
+    function getContiguousCasillas(x, y) {
+        let contiguousCasillas = [];
+
+        //Misma fila
+        if (y-1 > -1) {
+            contiguousCasillas.push(tableroArray[x][y-1]);
+        }
+
+        if (y+1 < tableroColumn) {
+            contiguousCasillas.push(tableroArray[x][y+1]);
+        }
+
+        //Fila inferior
+        if (x-1 > -1) {
+            contiguousCasillas.push(tableroArray[x-1][y]);
+
+            if (y-1 > -1) {
+                contiguousCasillas.push(tableroArray[x-1][y-1]);
+            }
+
+            if (y+1 < tableroColumn) {
+                contiguousCasillas.push(tableroArray[x-1][y+1]);
+            }
+        }
+
+        //Fila superior
+        if (x+1 < tableroRow) {
+            contiguousCasillas.push(tableroArray[x+1][y]);
+
+            if (y-1 > -1) {
+                contiguousCasillas.push(tableroArray[x+1][y-1]);
+            }
+
+            if (y+1 < tableroColumn) {
+                contiguousCasillas.push(tableroArray[x+1][y+1]);
+            }
+        }
+
+        return contiguousCasillas;
+    }
+
+    function setMinesAround() {
+        for (let x = 0; x < tableroRow; x++) {
+            for (let y = 0; y < tableroColumn; y++) {
+                let contiguousCasillas = getContiguousCasillas(x, y);
+                let minesAround = 0;
+
+                for (let i = 0; i < contiguousCasillas.length; i++) {
+                    if (contiguousCasillas[i].mine) {
+                        minesAround++;
+                    }
+                }
+
+                tableroArray[x][y].around = minesAround;
+            }
+        }
+    }
+
+    function setTableroArray() {
+        for (let x = 0; x < tableroRow; x++) {
+            tableroArray[x] = new Array(tableroColumn);
+
+            for (let y = 0; y < tableroColumn; y++) {
+                let mine = false;
+
+                if (Math.floor(Math.random() * (tableroRow * tableroColumn) + 1) < minesTarget) {
+                    mine = true;
+                    minesAmount++;
+                }
+
+                tableroArray[x][y] = {row: x, column: y, mine: mine, discovered: false, around: 0};
+            }
+        }
+
+        setMinesAround();
+    }
+
+
+    function setTablero() {
+        let $tablero = $('.tablero');
+        $tablero.css('width', tableroRow * casillaSize + 'px');
+        $tablero.css('height', tableroColumn * casillaSize + 'px');
+
+        for (let x = 0; x < tableroRow; x++ ) {
+            $tablero.append("<div class='fila'></div>");
+
+            for (let y = 0; y < tableroColumn; y++) {
+                $($('.fila')[x]).append("<div data-discovered='false' data-around='" + tableroArray[x][y].around + "' data-row='" + x + "' data-column='" + y + "' data-mine='" + tableroArray[x][y].mine + "' class='casilla type-" + tableroArray[x][y].around + "'><span>" + tableroArray[x][y].around + "</span></div>");
+            }
+        }
+
+        var $casilla = $('.casilla');
+        $casilla.css('width', casillaSize + 'px');
+        $casilla.css('height', casillaSize + 'px');
+    }
+
+    function discoverCasilla($mine) {
+        $mine.find('span').show();
+        $mine.data('discovered', true);
+        tableroArray[$mine.data('row')][$mine.data('column')].discovered = true;
+        $mine.css('background-color', 'white');
+        discoveredCasillas++;
+    }
+
+    function getHtmlMine(x, y) {
+        return $('.casilla[data-row=' + x + '][data-column=' + y + ']');
+    }
+
+    function discoverCasillaPropagation($mine) {
+        discoverCasilla($mine);
+        let contiguousMines = getContiguousCasillas($mine.data('row'), $mine.data('column'));
+
+        for (let i = 0; i < contiguousMines.length; i++) {
+            $htmlMine = getHtmlMine(contiguousMines[i].row, contiguousMines[i].column);
+            if (!contiguousMines[i].mine && !$htmlMine.data('discovered')) {
+
+                if (contiguousMines[i].around > 0) {
+                    discoverCasilla($htmlMine);
+                } else {
+                    discoverCasillaPropagation($htmlMine);
+                }
+            }
+        }
+    }
+
+    function checkGameCompleted() {
+        if (((tableroRow * tableroColumn) - minesAmount) === discoveredCasillas) {
+            alert('Has ganado');
+        }
+    }
+
+    setTableroArray();
+    setTablero();
+
+    $('.casilla').click(function () {
+        if ($(this).data('mine')) {
+            alert('Game over');
+            return;
+        }
+
+        if ($(this).data('around') > 0) {
+            discoverCasilla($(this));
+            checkGameCompleted();
+            return;
+        }
+
+        discoverCasillaPropagation($(this));
+        checkGameCompleted();
+    });
+
+    $('.casilla').mousedown(function(e) {
+        if (e.which === 3) {
+            if (!$(this).data('discovered')) {
+                if ($(this).css('background-color') === 'rgb(177, 177, 177)') {
+                    $(this).css('background-color', 'red');
+                } else {
+                    $(this).css('background-color', 'rgb(177, 177, 177)');
+                }
+            }
+        }
+    });
+
+</script>
+</body>
+</html>
